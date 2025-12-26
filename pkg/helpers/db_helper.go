@@ -6,6 +6,8 @@ import (
 	"github.com/go-errors/errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	"log"
+	"os"
 	"time"
 )
 
@@ -17,13 +19,14 @@ func GetGormConnection(dbConfig *DbConfig) (*gorm.DB, error) {
 
 	config := &gorm.Config{}
 
-	if dbConfig.Logging {
-		config.Logger = logger.Default.LogMode(logger.Info)
-	}
-
-	//if dbConfig.DisableAutomaticPing {
-	config.DisableAutomaticPing = true
-	//}
+	config.Logger = logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags),
+		logger.Config{
+			SlowThreshold:             time.Second,
+			LogLevel:                  logger.Info,
+			IgnoreRecordNotFoundError: true,
+		},
+	)
 
 	gormDb, err := gorm.Open(dbConfig.Dialector, config)
 
