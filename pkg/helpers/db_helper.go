@@ -10,7 +10,7 @@ import (
 )
 
 // GetGormConnection Возвращает клиент для работы с БД
-func GetGormConnection(dbConfig DbConfig) (*gorm.DB, error) {
+func GetGormConnection(dbConfig *DbConfig) (*gorm.DB, error) {
 	if dbConfig.Dialector == nil {
 		return nil, errors.New("Unknown db dialector")
 	}
