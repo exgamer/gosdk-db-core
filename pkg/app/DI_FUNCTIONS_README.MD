@@ -3,6 +3,6 @@
 Db конфиг приложения:
 
 ```go
-router, err := app.GetDbConfig(a *app.App) (*config.DbConfig, error)
+dbConfig, err := app.GetDbConfig(a *app.App) (*config.DbConfig, error)
 ```
 
