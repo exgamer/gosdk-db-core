@@ -1,9 +1,9 @@
 package pagination
 
 type Paging struct {
-	Page     int      `json:"page"`
+	Page     uint     `json:"page"`
 	OrderBy  []string `json:"order_by"`
-	Limit    int      `json:"limit"`
-	MaxLimit int
+	Limit    uint     `json:"limit"`
+	MaxLimit uint
 	ShowSQL  bool
 }

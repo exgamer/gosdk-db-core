@@ -15,7 +15,7 @@ func Pages(p *Param, result interface{}) (paginator *Pagination, err error) {
 		defPage  = 1
 		defLimit = 20
 		count    int64
-		offset   int
+		offset   uint
 	)
 
 	// get all counts
@@ -32,7 +32,7 @@ func Pages(p *Param, result interface{}) (paginator *Pagination, err error) {
 	}
 	// limit
 	if p.Paging.Limit == 0 {
-		p.Paging.Limit = defLimit
+		p.Paging.Limit = uint(defLimit)
 	}
 	//Обработка ограничения максимального количества записей на странице
 	if p.Paging.Limit > p.Paging.MaxLimit {
@@ -40,7 +40,7 @@ func Pages(p *Param, result interface{}) (paginator *Pagination, err error) {
 	}
 	// page
 	if p.Paging.Page < 1 {
-		p.Paging.Page = defPage
+		p.Paging.Page = uint(defPage)
 	} else if p.Paging.Page > 1 {
 		offset = (p.Paging.Page - 1) * p.Paging.Limit
 	}
@@ -55,16 +55,16 @@ func Pages(p *Param, result interface{}) (paginator *Pagination, err error) {
 	}
 
 	// get
-	if errGet := db.Limit(p.Paging.Limit).Offset(offset).Find(result).Error; errGet != nil && !errors.Is(errGet, gorm.ErrRecordNotFound) {
+	if errGet := db.Limit(int(p.Paging.Limit)).Offset(int(offset)).Find(result).Error; errGet != nil && !errors.Is(errGet, gorm.ErrRecordNotFound) {
 		return nil, errGet
 	}
 
 	// total pages
-	total := int(math.Ceil(float64(count) / float64(p.Paging.Limit)))
+	total := uint(math.Ceil(float64(count) / float64(p.Paging.Limit)))
 
 	// construct pagination
 	paginator = &Pagination{
-		TotalRecords: count,
+		TotalRecords: uint64(count),
 		Page:         p.Paging.Page,
 		Offset:       offset,
 		Limit:        p.Paging.Limit,
@@ -73,7 +73,7 @@ func Pages(p *Param, result interface{}) (paginator *Pagination, err error) {
 		NextPage:     p.Paging.Page,
 	}
 
-	var pge = 0
+	var pge uint = 0
 
 	if p.Paging.Page > 0 {
 		pge = p.Paging.Page - 1

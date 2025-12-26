@@ -20,8 +20,8 @@ func NewGormPaginatedHelper[E interface{}](ctx context.Context, client *gorm.DB)
 // GormPaginatedHelper - Вспомогательный хелпер для постраничного чтения данных
 type GormPaginatedHelper[E interface{}] struct {
 	client     *gorm.DB
-	perPage    int
-	maxPerPage int
+	perPage    uint
+	maxPerPage uint
 	timeout    time.Duration
 	model      E
 	ctx        context.Context
@@ -39,13 +39,13 @@ func (h *GormPaginatedHelper[E]) SetTimeout(timeout time.Duration) *GormPaginate
 	return h
 }
 
-func (h *GormPaginatedHelper[E]) SetPerPage(perPage int) *GormPaginatedHelper[E] {
+func (h *GormPaginatedHelper[E]) SetPerPage(perPage uint) *GormPaginatedHelper[E] {
 	h.perPage = perPage
 
 	return h
 }
 
-func (h *GormPaginatedHelper[E]) Paginated(page int, callback func(client *gorm.DB) *gorm.DB) (*pagination.Paginated[E], error) {
+func (h *GormPaginatedHelper[E]) Paginated(page uint, callback func(client *gorm.DB) *gorm.DB) (*pagination.Paginated[E], error) {
 	var structure pagination.Paginated[E]
 	var err error
 	paging := pagination.Paging{}
@@ -72,7 +72,7 @@ func (h *GormPaginatedHelper[E]) Paginated(page int, callback func(client *gorm.
 		return nil, err
 	}
 
-	structure.Pagination.To = structure.Pagination.From + len(structure.Items)
+	structure.Pagination.To = structure.Pagination.From + uint(len(structure.Items))
 
 	if len(structure.Items) == 0 {
 		structure.Pagination.From = 0
