@@ -2,26 +2,12 @@ package database
 
 import (
 	"fmt"
-	config2 "github.com/exgamer/gosdk-core/pkg/config"
-	"github.com/exgamer/gosdk-db-core/pkg/config"
 	"github.com/exgamer/gosdk-db-core/pkg/middleware"
 	"github.com/go-errors/errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"time"
 )
-
-// InitDbConfig Инициализация конфига БД c переменок окружения
-func InitDbConfig() (*config.DbConfig, error) {
-	dbConfig := &config.DbConfig{}
-	err := config2.InitConfig(dbConfig)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return dbConfig, nil
-}
 
 // GetGormConnection Возвращает клиент для работы с БД
 func GetGormConnection(dbConfig DbConfig) (*gorm.DB, error) {
