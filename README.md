@@ -20,6 +20,10 @@ SDK-пакет для работы с базами данных через **GOR
 go get github.com/exgamer/gosdk-db-core
 ```
 
+## Пример работы с запросами
+
+[Пример работы с запросами](pkg/query/helpers/README.md)
+
 ## Быстрый старт
 
 ### 1) Подготовка `DbConfig`
