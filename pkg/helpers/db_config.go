@@ -15,6 +15,7 @@ type DbConfig struct {
 	MaxIdleConnections   int
 	Logging              bool
 	DisableAutomaticPing bool
+	DbLogLevel           string
 	// ServiceName -  данное поле нужно для записи в сентри медленных запросов с отоборажением какой именно сервис вызывает это
 	ServiceName string
 	// Threshold - максимальный порог в сек, выше которого в сентри будут записыватся данные. Время в секундах,если не указано то дефолт 1 сек
