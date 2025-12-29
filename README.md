@@ -124,3 +124,11 @@ if err != nil {
   panic(err)
 }
 ```
+
+## Логирование запросов
+
+Для вывода логов запросов используется свойство DbConfig.DbLogLevel 
+ - "info"
+ - "errors"
+ - "warnings"
+
