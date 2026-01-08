@@ -3,14 +3,13 @@ module github.com/exgamer/gosdk-db-core
 go 1.23.0
 
 require (
-	github.com/exgamer/gosdk-core v1.0.1
+	github.com/exgamer/gosdk-core v1.0.2
 	github.com/getsentry/sentry-go v0.24.1
 	github.com/go-errors/errors v1.4.2
 	gorm.io/gorm v1.25.7
 )
 
 require (
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
