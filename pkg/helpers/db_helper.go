@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	logger2 "github.com/exgamer/gosdk-core/pkg/logger"
 	"github.com/exgamer/gosdk-db-core/pkg/middleware"
 	"github.com/go-errors/errors"
 	"gorm.io/gorm"
@@ -17,12 +18,8 @@ func GetGormConnection(dbConfig *DbConfig) (*gorm.DB, error) {
 
 	config := &gorm.Config{}
 
-	if dbConfig.DbLogLevel == "info" {
+	if logger2.IsDebugLevel() {
 		config.Logger = logger.Default.LogMode(logger.Info)
-	} else if dbConfig.DbLogLevel == "errors" {
-		config.Logger = logger.Default.LogMode(logger.Error)
-	} else if dbConfig.DbLogLevel == "warnings" {
-		config.Logger = logger.Default.LogMode(logger.Warn)
 	} else {
 		config.Logger = logger.Default.LogMode(logger.Error)
 	}
