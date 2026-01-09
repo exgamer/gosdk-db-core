@@ -24,7 +24,7 @@ func GetGormConnection(dbConfig *DbConfig) (*gorm.DB, error) {
 	} else if dbConfig.DbLogLevel == "warnings" {
 		config.Logger = logger.Default.LogMode(logger.Warn)
 	} else {
-		config.Logger = logger.Default.LogMode(logger.Silent)
+		config.Logger = logger.Default.LogMode(logger.Error)
 	}
 
 	//if dbConfig.DisableAutomaticPing {
