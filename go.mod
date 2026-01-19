@@ -3,8 +3,8 @@ module github.com/exgamer/gosdk-db-core
 go 1.25.5
 
 require (
-	github.com/exgamer/gosdk-core v1.0.13
-	github.com/getsentry/sentry-go v0.40.0
+	github.com/exgamer/gosdk-core v1.0.15
+	github.com/getsentry/sentry-go v0.41.0
 	github.com/go-errors/errors v1.5.1
 	gorm.io/gorm v1.31.1
 )
