@@ -132,3 +132,6 @@ if err != nil {
  - "errors"
  - "warnings"
 
+## Транзакции
+
+[Принцип работы с транзакциями](pkg/transaction/README.md)
