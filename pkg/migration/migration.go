@@ -48,3 +48,39 @@ func Run(db *gorm.DB, migrations []*Migration) error {
 
 	return gormigrate.New(db, gormigrate.DefaultOptions, migrations).Migrate()
 }
+
+// RollbackLast откатывает последнюю применённую миграцию из migrations,
+// вызывая её Rollback. Пустой список — не ошибка: пишется лог, ничего не
+// откатывается. Как и Run, не защищена от параллельного вызова из нескольких
+// инстансов — это ответственность вызывающей стороны (СУБД-специфичная
+// блокировка, если нужна).
+//
+// Это ручная/oncall-операция — в отличие от Run, её не следует вызывать
+// автоматически при старте сервиса.
+func RollbackLast(db *gorm.DB, migrations []*Migration) error {
+	if len(migrations) == 0 {
+		log.Println("migration: nothing to rollback")
+
+		return nil
+	}
+
+	log.Println("migration: rolling back last migration")
+
+	return gormigrate.New(db, gormigrate.DefaultOptions, migrations).RollbackLast()
+}
+
+// RollbackTo откатывает все применённые миграции из migrations, идущие после
+// migrationID, в обратном порядке — саму migrationID не откатывает
+// (семантика gormigrate.RollbackTo). Как и RollbackLast — ручная операция,
+// без защиты от параллельного вызова.
+func RollbackTo(db *gorm.DB, migrations []*Migration, migrationID string) error {
+	if len(migrations) == 0 {
+		log.Println("migration: nothing to rollback")
+
+		return nil
+	}
+
+	log.Printf("migration: rolling back to %q (exclusive)", migrationID)
+
+	return gormigrate.New(db, gormigrate.DefaultOptions, migrations).RollbackTo(migrationID)
+}
