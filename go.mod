@@ -6,6 +6,7 @@ require (
 	github.com/exgamer/gosdk-core v1.0.23
 	github.com/getsentry/sentry-go v0.48.0
 	github.com/go-errors/errors v1.5.1
+	github.com/go-gormigrate/gormigrate/v2 v2.1.6
 	gorm.io/gorm v1.31.2
 )
 
