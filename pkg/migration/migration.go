@@ -5,8 +5,8 @@
 // (advisory lock и подобное) — это СУБД-специфичный механизм (у Postgres
 // свой синтаксис, у MySQL свой, у SQLite такого нет вовсе), поэтому он
 // не может жить в dialect-agnostic коде; вызывающая сторона, знающая
-// конкретную СУБД (см. gosdk-postgres-core: PostgresKernel.WithMigrations),
-// оборачивает Run такой блокировкой сама.
+// конкретную СУБД (см. gosdk-postgres-core: Migrator), оборачивает Run/
+// RollbackLast/RollbackTo такой блокировкой сама.
 //
 // Это не Kernel и не подключается через RegisterAndInitKernels напрямую:
 // gosdk-core.KernelManager инициализирует kernels в произвольном порядке
