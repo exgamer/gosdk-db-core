@@ -1,12 +1,12 @@
 module github.com/exgamer/gosdk-db-core
 
-go 1.25.5
+go 1.26.0
 
 require (
-	github.com/exgamer/gosdk-core v1.0.23
-	github.com/getsentry/sentry-go v0.48.0
+	github.com/exgamer/gosdk-core v1.0.26
+	github.com/getsentry/sentry-go v0.49.0
 	github.com/go-errors/errors v1.5.1
-	github.com/go-gormigrate/gormigrate/v2 v2.1.6
+	github.com/go-gormigrate/gormigrate/v2 v2.1.7
 	gorm.io/gorm v1.31.2
 )
 
@@ -23,6 +23,6 @@ require (
 	github.com/spf13/viper v1.21.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/sys v0.47.0 // indirect
-	golang.org/x/text v0.41.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/text v0.42.0 // indirect
 )
