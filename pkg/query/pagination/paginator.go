@@ -2,6 +2,7 @@ package pagination
 
 import (
 	"errors"
+	"fmt"
 	"math"
 
 	"gorm.io/gorm"
@@ -19,7 +20,9 @@ func Pages(p *Param, result interface{}) (paginator *Pagination, err error) {
 	)
 
 	// get all counts
-	getCounts(db, result, &count)
+	if errCount := getCounts(db, result, &count); errCount != nil {
+		return nil, fmt.Errorf("pagination: count: %w", errCount)
+	}
 
 	// if not defined
 	if p.Paging == nil {
@@ -111,8 +114,8 @@ func Pages(p *Param, result interface{}) (paginator *Pagination, err error) {
 	return paginator, nil
 }
 
-func getCounts(db *gorm.DB, anyType interface{}, count *int64) {
-	db.Select("*").Model(anyType).Count(count)
+func getCounts(db *gorm.DB, anyType interface{}, count *int64) error {
+	return db.Select("*").Model(anyType).Count(count).Error
 }
 
 func (p Pagination) IsEmpty() bool {

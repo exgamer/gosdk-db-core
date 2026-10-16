@@ -28,6 +28,13 @@ import (
 // нужно было импортировать gormigrate напрямую.
 type Migration = gormigrate.Migration
 
+// Options Настройки прогона миграций. Нулевое значение — прежнее поведение (gormigrate.DefaultOptions)
+type Options struct {
+	// UseTransaction Все миграции прогона — в одной транзакции: при сбое схема откатывается целиком.
+	// Не все СУБД поддерживают DDL в транзакции
+	UseTransaction bool
+}
+
 // Run применяет все ещё не применённые migrations к db, по одной, в порядке
 // объявления. Пустой список — не ошибка: пишется лог, Migrate не
 // вызывается. Никакой защиты от параллельного вызова из нескольких
@@ -38,6 +45,11 @@ type Migration = gormigrate.Migration
 // сгенерированной командой `codegen migration add`, но можно передать и
 // явный список напрямую.
 func Run(db *gorm.DB, migrations []*Migration) error {
+	return RunWithOptions(db, migrations, Options{})
+}
+
+// RunWithOptions Run с настройками opts
+func RunWithOptions(db *gorm.DB, migrations []*Migration, opts Options) error {
 	if len(migrations) == 0 {
 		log.Println("migration: nothing to apply")
 
@@ -46,7 +58,7 @@ func Run(db *gorm.DB, migrations []*Migration) error {
 
 	log.Printf("migration: applying up to %d migration(s)", len(migrations))
 
-	return gormigrate.New(db, gormigrate.DefaultOptions, migrations).Migrate()
+	return gormigrate.New(db, gormigrateOptions(opts), migrations).Migrate()
 }
 
 // RollbackLast откатывает последнюю применённую миграцию из migrations,
@@ -58,6 +70,11 @@ func Run(db *gorm.DB, migrations []*Migration) error {
 // Это ручная/oncall-операция — в отличие от Run, её не следует вызывать
 // автоматически при старте сервиса.
 func RollbackLast(db *gorm.DB, migrations []*Migration) error {
+	return RollbackLastWithOptions(db, migrations, Options{})
+}
+
+// RollbackLastWithOptions RollbackLast с настройками opts
+func RollbackLastWithOptions(db *gorm.DB, migrations []*Migration, opts Options) error {
 	if len(migrations) == 0 {
 		log.Println("migration: nothing to rollback")
 
@@ -66,7 +83,7 @@ func RollbackLast(db *gorm.DB, migrations []*Migration) error {
 
 	log.Println("migration: rolling back last migration")
 
-	return gormigrate.New(db, gormigrate.DefaultOptions, migrations).RollbackLast()
+	return gormigrate.New(db, gormigrateOptions(opts), migrations).RollbackLast()
 }
 
 // RollbackTo откатывает все применённые миграции из migrations, идущие после
@@ -74,6 +91,11 @@ func RollbackLast(db *gorm.DB, migrations []*Migration) error {
 // (семантика gormigrate.RollbackTo). Как и RollbackLast — ручная операция,
 // без защиты от параллельного вызова.
 func RollbackTo(db *gorm.DB, migrations []*Migration, migrationID string) error {
+	return RollbackToWithOptions(db, migrations, migrationID, Options{})
+}
+
+// RollbackToWithOptions RollbackTo с настройками opts
+func RollbackToWithOptions(db *gorm.DB, migrations []*Migration, migrationID string, opts Options) error {
 	if len(migrations) == 0 {
 		log.Println("migration: nothing to rollback")
 
@@ -82,5 +104,13 @@ func RollbackTo(db *gorm.DB, migrations []*Migration, migrationID string) error 
 
 	log.Printf("migration: rolling back to %q (exclusive)", migrationID)
 
-	return gormigrate.New(db, gormigrate.DefaultOptions, migrations).RollbackTo(migrationID)
+	return gormigrate.New(db, gormigrateOptions(opts), migrations).RollbackTo(migrationID)
+}
+
+// gormigrateOptions Копия gormigrate.DefaultOptions с настройками из opts
+func gormigrateOptions(opts Options) *gormigrate.Options {
+	options := *gormigrate.DefaultOptions
+	options.UseTransaction = opts.UseTransaction
+
+	return &options
 }

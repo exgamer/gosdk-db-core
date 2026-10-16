@@ -74,7 +74,6 @@ func (p *SlowSqlSentry) after(db *gorm.DB) {
 				operation = p.detectOperationType(db.Statement.SQL.String())
 			}
 			mapData["Operation"] = operation
-			mapData["Sql Params"] = db.Statement.Vars
 
 			if db.Error != nil {
 				mapData["Sql Error"] = db.Error.Error()

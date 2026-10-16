@@ -2,12 +2,16 @@ package database
 
 import (
 	"fmt"
+	"io"
+	"log"
+	"os"
+	"time"
+
 	logger2 "github.com/exgamer/gosdk-core/pkg/logger"
 	"github.com/exgamer/gosdk-db-core/pkg/middleware"
 	"github.com/go-errors/errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"time"
 )
 
 // GetGormConnection Возвращает клиент для работы с БД
@@ -16,12 +20,8 @@ func GetGormConnection(dbConfig *DbConfig) (*gorm.DB, error) {
 		return nil, errors.New("Unknown db dialector")
 	}
 
-	config := &gorm.Config{}
-
-	if logger2.IsDebugLevel() {
-		config.Logger = logger.Default.LogMode(logger.Info)
-	} else {
-		config.Logger = logger.Default.LogMode(logger.Error)
+	config := &gorm.Config{
+		Logger: newGormLogger(os.Stdout, logger2.IsDebugLevel()),
 	}
 
 	//if dbConfig.DisableAutomaticPing {
@@ -73,4 +73,22 @@ func GetGormConnection(dbConfig *DbConfig) (*gorm.DB, error) {
 	}
 
 	return gormDb, nil
+}
+
+// newGormLogger Логгер GORM с настройками logger.Default: на debug — все запросы со значениями
+// параметров, иначе — только ошибки, SQL с плейсхолдерами без значений
+func newGormLogger(writer io.Writer, debug bool) logger.Interface {
+	level := logger.Error
+
+	if debug {
+		level = logger.Info
+	}
+
+	return logger.New(log.New(writer, "\r\n", log.LstdFlags), logger.Config{
+		SlowThreshold:             200 * time.Millisecond,
+		LogLevel:                  level,
+		IgnoreRecordNotFoundError: false,
+		Colorful:                  true,
+		ParameterizedQueries:      !debug,
+	})
 }
