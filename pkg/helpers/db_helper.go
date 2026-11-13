@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -76,19 +77,43 @@ func GetGormConnection(dbConfig *DbConfig) (*gorm.DB, error) {
 }
 
 // newGormLogger Логгер GORM с настройками logger.Default: на debug — все запросы со значениями
-// параметров, иначе — только ошибки, SQL с плейсхолдерами без значений
+// параметров, иначе — только ошибки, кроме context.Canceled (запрос оборвал клиент), SQL
+// с плейсхолдерами без значений
 func newGormLogger(writer io.Writer, debug bool) logger.Interface {
 	level := logger.Error
 
+	var out logger.Writer = log.New(writer, "\r\n", log.LstdFlags)
+
 	if debug {
 		level = logger.Info
+	} else {
+		out = skipCanceledWriter{Writer: out}
 	}
 
-	return logger.New(log.New(writer, "\r\n", log.LstdFlags), logger.Config{
+	return logger.New(out, logger.Config{
 		SlowThreshold:             200 * time.Millisecond,
 		LogLevel:                  level,
 		IgnoreRecordNotFoundError: false,
 		Colorful:                  true,
 		ParameterizedQueries:      !debug,
 	})
+}
+
+// skipCanceledWriter Не пишет строки лога GORM с ошибкой context.Canceled: запрос оборвал клиент
+// (закрыл соединение, ушёл со страницы), это не сбой БД. context.DeadlineExceeded и прочие ошибки
+// пишутся как раньше. Фильтр стоит на Writer, а не на Trace: обёртка Trace сдвинула бы файл:строку
+// вызова в логе GORM на этот пакет
+type skipCanceledWriter struct {
+	logger.Writer
+}
+
+// Printf Пишет строку, если среди аргументов нет ошибки context.Canceled
+func (w skipCanceledWriter) Printf(format string, args ...any) {
+	for _, arg := range args {
+		if err, ok := arg.(error); ok && errors.Is(err, context.Canceled) {
+			return
+		}
+	}
+
+	w.Writer.Printf(format, args...)
 }
