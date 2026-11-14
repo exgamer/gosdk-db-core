@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	logger2 "github.com/exgamer/gosdk-core/pkg/logger"
@@ -76,9 +77,13 @@ func GetGormConnection(dbConfig *DbConfig) (*gorm.DB, error) {
 	return gormDb, nil
 }
 
+// envIgnoreRecordNotFound Переменная окружения: true — не писать «record not found» (First/Take/Last без строки)
+// в лог GORM как ошибку запроса. По умолчанию пишется, как раньше
+const envIgnoreRecordNotFound = "DB_IGNORE_RECORD_NOT_FOUND"
+
 // newGormLogger Логгер GORM с настройками logger.Default: на debug — все запросы со значениями
 // параметров, иначе — только ошибки, кроме context.Canceled (запрос оборвал клиент), SQL
-// с плейсхолдерами без значений
+// с плейсхолдерами без значений. «record not found» пишется как ошибка, DB_IGNORE_RECORD_NOT_FOUND=true — не пишется
 func newGormLogger(writer io.Writer, debug bool) logger.Interface {
 	level := logger.Error
 
@@ -93,10 +98,17 @@ func newGormLogger(writer io.Writer, debug bool) logger.Interface {
 	return logger.New(out, logger.Config{
 		SlowThreshold:             200 * time.Millisecond,
 		LogLevel:                  level,
-		IgnoreRecordNotFoundError: false,
+		IgnoreRecordNotFoundError: ignoreRecordNotFound(),
 		Colorful:                  true,
 		ParameterizedQueries:      !debug,
 	})
+}
+
+// ignoreRecordNotFound DB_IGNORE_RECORD_NOT_FOUND разобран как bool; пусто или неверно — false
+func ignoreRecordNotFound() bool {
+	v, err := strconv.ParseBool(os.Getenv(envIgnoreRecordNotFound))
+
+	return err == nil && v
 }
 
 // skipCanceledWriter Не пишет строки лога GORM с ошибкой context.Canceled: запрос оборвал клиент

@@ -114,6 +114,38 @@ func TestNewGormLogger_ContextCanceled(t *testing.T) {
 	}
 }
 
+func TestNewGormLogger_RecordNotFound(t *testing.T) {
+	cases := []struct {
+		name       string
+		env        string
+		debug      bool
+		wantLogged bool
+	}{
+		{name: "по умолчанию — пишется, как раньше", wantLogged: true},
+		{name: "DB_IGNORE_RECORD_NOT_FOUND=true — не пишется", env: "true", wantLogged: false},
+		{name: "DB_IGNORE_RECORD_NOT_FOUND=true, debug — не пишется", env: "true", debug: true, wantLogged: false},
+		{name: "DB_IGNORE_RECORD_NOT_FOUND=abc — пишется", env: "abc", wantLogged: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(envIgnoreRecordNotFound, tc.env)
+
+			var out bytes.Buffer
+
+			db := openDummyDB(t, newGormLogger(&out, tc.debug), gorm.ErrRecordNotFound)
+
+			var row gormLoggerProbe
+			db.Where("hash = ?", secretValue).First(&row)
+
+			logged := strings.Contains(out.String(), "record not found")
+			if logged != tc.wantLogged {
+				t.Fatalf("record not found logged = %v, want %v; output: %q", logged, tc.wantLogged, out.String())
+			}
+		})
+	}
+}
+
 // openDummyDB Открывает GORM без БД; queryErr не nil — запрос завершается этой ошибкой
 func openDummyDB(t *testing.T, gormLogger logger.Interface, queryErr error) *gorm.DB {
 	t.Helper()

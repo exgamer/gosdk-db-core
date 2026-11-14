@@ -80,6 +80,9 @@ type DbConfig struct {
 }
 ```
 
+Лог GORM: на debug — все запросы, иначе — только ошибки, кроме `context.Canceled`.
+`DB_IGNORE_RECORD_NOT_FOUND=true` — не писать «record not found» (`First`/`Take`/`Last` без строки) как ошибку.
+
 ## Middleware
 
 ### Slow SQL → Sentry
