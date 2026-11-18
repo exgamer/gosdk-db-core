@@ -4,15 +4,19 @@ import "gorm.io/gorm"
 
 // DbConfig Модель данных для описания соединения с БД
 type DbConfig struct {
-	Dialector            gorm.Dialector
-	Host                 string
-	User                 string
-	Password             string
-	Db                   string
-	Port                 string
-	SslMode              bool
-	MaxOpenConnections   int
-	MaxIdleConnections   int
+	Dialector gorm.Dialector
+	Host      string
+	User      string
+	Password  string
+	Db        string
+	Port      string
+	SslMode   bool
+	// MaxOpenConnections Предел открытых соединений; 0 — 25
+	MaxOpenConnections int
+	// MaxIdleConnections Простаивающих соединений; 0 — 10 (не больше MaxOpenConnections)
+	MaxIdleConnections int
+	// Logging, DisableAutomaticPing, DbLogLevel не применяются: лог GORM задаёт LOG_LEVEL (gosdk-core),
+	// при подключении всегда ping
 	Logging              bool
 	DisableAutomaticPing bool
 	DbLogLevel           string

@@ -9,7 +9,8 @@ SDK-пакет для работы с базами данных через **GOR
 ## Возможности
 
 - Инициализация `*gorm.DB` через общий `DbConfig`
-- Настройка пула соединений: `MaxOpenConnections`, `MaxIdleConnections`, `ConnMaxLifetime`
+- Настройка пула соединений: `MaxOpenConnections` (не задан — 25), `MaxIdleConnections` (не задан — 10, не больше
+  открытых), `ConnMaxLifetime` 1 ч, `ConnMaxIdleTime` 5 мин
 - Опциональный логгер GORM (`logger.Info`)
 - Подключение middleware через `db.Use(...)`
 - Единый стиль хранения конфигурации для сервисов
@@ -79,6 +80,8 @@ type DbConfig struct {
   Threshold   float64
 }
 ```
+
+`Logging`, `DbLogLevel`, `DisableAutomaticPing` не применяются: лог GORM задаёт `LOG_LEVEL`, при подключении всегда ping.
 
 Лог GORM: на debug — все запросы, иначе — только ошибки, кроме `context.Canceled`.
 `DB_IGNORE_RECORD_NOT_FOUND=true` — не писать «record not found» (`First`/`Take`/`Last` без строки) как ошибку.

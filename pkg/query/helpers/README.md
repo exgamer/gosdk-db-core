@@ -1,3 +1,20 @@
+## Постраничная выборка: правила
+
+- `pagination.Paging.OrderBy` (`json:"order_by"`) — только колонки: `name`, `table.name`, с необязательным `asc`/`desc`
+  (без учёта регистра). Другая строка (выражение, функция, `;`, `nulls last`) — ошибка `pagination.ErrInvalidOrderBy`
+  из `Pages`: отвечать клиенту 400/422. Колонка уходит в SQL в кавычках, имя приводится к нижнему регистру.
+  Сортировку выражением задавать в колбэке запроса (`client.Order(...)`), не из данных клиента.
+- `MaxLimit` и `ShowSQL` из JSON и form-параметров не читаются. `MaxLimit` 0 или больше 1000 — 1000
+  (`pagination.MaxLimitCeiling`); `Limit` 0 — 20 (`pagination.DefaultLimit`); страница ограничена так, чтобы
+  OFFSET не превышал 2^31-1.
+- Без `OrderBy` — сортировка по первичному ключу по убыванию (`"table"."id" DESC`), если у запроса нет своего
+  ORDER BY, GROUP BY или DISTINCT.
+- Запрос с GROUP BY или DISTINCT считается подзапросом: `SELECT count(*) FROM (<запрос>) AS pagination_count`.
+- `GormPaginatedHelper.SetTimeout(5 * time.Second)` — `time.Duration`; значение меньше миллисекунды — секунды
+  (старый вызов `SetTimeout(10)` — 10 с); 0 и меньше — таймаут не меняется (по умолчанию 10 с).
+- Поиск подстрокой: `Where("name ILIKE ?", "%"+helpers.EscapeLike(q)+"%")` — `%`, `_`, `\` из ввода не работают
+  как шаблон.
+
 Пример запроса постраничного списка
 
 ```go

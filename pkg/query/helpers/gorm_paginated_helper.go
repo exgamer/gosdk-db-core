@@ -7,13 +7,16 @@ import (
 	"time"
 )
 
+// defaultTimeout Таймаут постраничного запроса (count и страница), если SetTimeout не вызывался
+const defaultTimeout = 10 * time.Second
+
 func NewGormPaginatedHelper[E interface{}](ctx context.Context, client *gorm.DB) *GormPaginatedHelper[E] {
 	return &GormPaginatedHelper[E]{
 		client:     client,
 		ctx:        ctx,
 		perPage:    30,
 		maxPerPage: 1000,
-		timeout:    10,
+		timeout:    defaultTimeout,
 	}
 }
 
@@ -33,7 +36,17 @@ func (h *GormPaginatedHelper[E]) SetContext(ctx context.Context) *GormPaginatedH
 	return h
 }
 
+// SetTimeout Таймаут постраничного запроса: SetTimeout(5*time.Second). Значение меньше миллисекунды — число
+// секунд, как раньше (SetTimeout(10) — 10 секунд); 0 и меньше — не меняет таймаут
 func (h *GormPaginatedHelper[E]) SetTimeout(timeout time.Duration) *GormPaginatedHelper[E] {
+	if timeout <= 0 {
+		return h
+	}
+
+	if timeout < time.Millisecond {
+		timeout *= time.Second
+	}
+
 	h.timeout = timeout
 
 	return h
@@ -60,7 +73,7 @@ func (h *GormPaginatedHelper[E]) Paginated(page uint, callback func(client *gorm
 		ctx = context.Background()
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, h.timeout*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, h.timeout)
 	defer cancel()
 
 	structure.Pagination, err = pagination.Pages(&pagination.Param{

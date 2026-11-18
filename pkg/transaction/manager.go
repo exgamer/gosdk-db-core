@@ -6,10 +6,18 @@
 //
 // Строители — функции, не готовые репозитории: каждый Exec открывает свою
 // транзакцию и должен получить репозиторий именно на неё, а не на пул.
+// Exec кладёт транзакцию в ctx: вложенный Exec (любого менеджера на том же
+// подключении) с этим ctx идёт точкой сохранения внешней транзакции, а не
+// открывает новую (см. run, FromContext). Вложенные Exec с одним ctx из
+// разных горутин идут по очереди (соединение у транзакции одно); параллельная
+// независимая работа — Exec(WithoutTransaction(ctx), ...). Транзакция,
+// зафиксированная или откаченная, из ctx больше не берётся: Exec с ctx,
+// пережившим внешний Exec, открывает новую.
 package transaction
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"gorm.io/gorm"
@@ -41,10 +49,12 @@ func NewManager[R any](client *gorm.DB, build func(tx *gorm.DB) R) *Manager[R] {
 	}
 }
 
-// WithTimeout переопределяет дефолтный таймаут транзакции (10s). Вызывать
+// WithTimeout переопределяет дефолтный таймаут транзакции (10s); d ≤ 0 игнорируется. Вызывать
 // сразу после NewManager, до начала обработки запросов.
 func (m *Manager[R]) WithTimeout(d time.Duration) *Manager[R] {
-	m.timeout = d
+	if d > 0 {
+		m.timeout = d
+	}
 	return m
 }
 
@@ -59,10 +69,16 @@ func (m *Manager[R]) Default() R {
 // bounded by m.timeout regardless of ctx's own deadline (the earlier of the
 // two wins, per context.WithTimeout semantics).
 func (m *Manager[R]) Exec(ctx context.Context, fn func(ctx context.Context, repo R) error) error {
-	ctx, cancel := context.WithTimeout(ctx, m.timeout)
-	defer cancel()
+	return run(ctx, m.client, m.timeout, nil, func(ctx context.Context, tx *gorm.DB) error {
+		return fn(ctx, m.build(tx))
+	})
+}
 
-	return m.client.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+// ExecWithOptions — Exec с параметрами транзакции (уровень изоляции, read-only).
+// Вложенный вызов (транзакция уже в ctx) идёт точкой сохранения внешней
+// транзакции, opts не применяются.
+func (m *Manager[R]) ExecWithOptions(ctx context.Context, opts *sql.TxOptions, fn func(ctx context.Context, repo R) error) error {
+	return run(ctx, m.client, m.timeout, opts, func(ctx context.Context, tx *gorm.DB) error {
 		return fn(ctx, m.build(tx))
 	})
 }
@@ -87,10 +103,12 @@ func NewManager2[R1, R2 any](client *gorm.DB, build1 func(tx *gorm.DB) R1, build
 	}
 }
 
-// WithTimeout переопределяет дефолтный таймаут транзакции (10s). Вызывать
+// WithTimeout переопределяет дефолтный таймаут транзакции (10s); d ≤ 0 игнорируется. Вызывать
 // сразу после NewManager2, до начала обработки запросов.
 func (m *Manager2[R1, R2]) WithTimeout(d time.Duration) *Manager2[R1, R2] {
-	m.timeout = d
+	if d > 0 {
+		m.timeout = d
+	}
 	return m
 }
 
@@ -103,10 +121,16 @@ func (m *Manager2[R1, R2]) Default() (R1, R2) {
 // rolls back everything (across both repositories) if fn returns an error.
 // The transaction is bounded by m.timeout regardless of ctx's own deadline.
 func (m *Manager2[R1, R2]) Exec(ctx context.Context, fn func(ctx context.Context, repo1 R1, repo2 R2) error) error {
-	ctx, cancel := context.WithTimeout(ctx, m.timeout)
-	defer cancel()
+	return run(ctx, m.client, m.timeout, nil, func(ctx context.Context, tx *gorm.DB) error {
+		return fn(ctx, m.build1(tx), m.build2(tx))
+	})
+}
 
-	return m.client.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+// ExecWithOptions — Exec с параметрами транзакции (уровень изоляции, read-only).
+// Вложенный вызов (транзакция уже в ctx) идёт точкой сохранения внешней
+// транзакции, opts не применяются.
+func (m *Manager2[R1, R2]) ExecWithOptions(ctx context.Context, opts *sql.TxOptions, fn func(ctx context.Context, repo1 R1, repo2 R2) error) error {
+	return run(ctx, m.client, m.timeout, opts, func(ctx context.Context, tx *gorm.DB) error {
 		return fn(ctx, m.build1(tx), m.build2(tx))
 	})
 }
@@ -137,10 +161,12 @@ func NewManager3[R1, R2, R3 any](
 	}
 }
 
-// WithTimeout переопределяет дефолтный таймаут транзакции (10s). Вызывать
+// WithTimeout переопределяет дефолтный таймаут транзакции (10s); d ≤ 0 игнорируется. Вызывать
 // сразу после NewManager3, до начала обработки запросов.
 func (m *Manager3[R1, R2, R3]) WithTimeout(d time.Duration) *Manager3[R1, R2, R3] {
-	m.timeout = d
+	if d > 0 {
+		m.timeout = d
+	}
 	return m
 }
 
@@ -154,10 +180,16 @@ func (m *Manager3[R1, R2, R3]) Default() (R1, R2, R3) {
 // returns an error. The transaction is bounded by m.timeout regardless of
 // ctx's own deadline.
 func (m *Manager3[R1, R2, R3]) Exec(ctx context.Context, fn func(ctx context.Context, repo1 R1, repo2 R2, repo3 R3) error) error {
-	ctx, cancel := context.WithTimeout(ctx, m.timeout)
-	defer cancel()
+	return run(ctx, m.client, m.timeout, nil, func(ctx context.Context, tx *gorm.DB) error {
+		return fn(ctx, m.build1(tx), m.build2(tx), m.build3(tx))
+	})
+}
 
-	return m.client.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+// ExecWithOptions — Exec с параметрами транзакции (уровень изоляции, read-only).
+// Вложенный вызов (транзакция уже в ctx) идёт точкой сохранения внешней
+// транзакции, opts не применяются.
+func (m *Manager3[R1, R2, R3]) ExecWithOptions(ctx context.Context, opts *sql.TxOptions, fn func(ctx context.Context, repo1 R1, repo2 R2, repo3 R3) error) error {
+	return run(ctx, m.client, m.timeout, opts, func(ctx context.Context, tx *gorm.DB) error {
 		return fn(ctx, m.build1(tx), m.build2(tx), m.build3(tx))
 	})
 }
@@ -190,10 +222,12 @@ func NewManager4[R1, R2, R3, R4 any](
 	}
 }
 
-// WithTimeout переопределяет дефолтный таймаут транзакции (10s). Вызывать
+// WithTimeout переопределяет дефолтный таймаут транзакции (10s); d ≤ 0 игнорируется. Вызывать
 // сразу после NewManager4, до начала обработки запросов.
 func (m *Manager4[R1, R2, R3, R4]) WithTimeout(d time.Duration) *Manager4[R1, R2, R3, R4] {
-	m.timeout = d
+	if d > 0 {
+		m.timeout = d
+	}
 	return m
 }
 
@@ -207,10 +241,16 @@ func (m *Manager4[R1, R2, R3, R4]) Default() (R1, R2, R3, R4) {
 // error. The transaction is bounded by m.timeout regardless of ctx's own
 // deadline.
 func (m *Manager4[R1, R2, R3, R4]) Exec(ctx context.Context, fn func(ctx context.Context, repo1 R1, repo2 R2, repo3 R3, repo4 R4) error) error {
-	ctx, cancel := context.WithTimeout(ctx, m.timeout)
-	defer cancel()
+	return run(ctx, m.client, m.timeout, nil, func(ctx context.Context, tx *gorm.DB) error {
+		return fn(ctx, m.build1(tx), m.build2(tx), m.build3(tx), m.build4(tx))
+	})
+}
 
-	return m.client.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+// ExecWithOptions — Exec с параметрами транзакции (уровень изоляции, read-only).
+// Вложенный вызов (транзакция уже в ctx) идёт точкой сохранения внешней
+// транзакции, opts не применяются.
+func (m *Manager4[R1, R2, R3, R4]) ExecWithOptions(ctx context.Context, opts *sql.TxOptions, fn func(ctx context.Context, repo1 R1, repo2 R2, repo3 R3, repo4 R4) error) error {
+	return run(ctx, m.client, m.timeout, opts, func(ctx context.Context, tx *gorm.DB) error {
 		return fn(ctx, m.build1(tx), m.build2(tx), m.build3(tx), m.build4(tx))
 	})
 }
@@ -246,10 +286,12 @@ func NewManager5[R1, R2, R3, R4, R5 any](
 	}
 }
 
-// WithTimeout переопределяет дефолтный таймаут транзакции (10s). Вызывать
+// WithTimeout переопределяет дефолтный таймаут транзакции (10s); d ≤ 0 игнорируется. Вызывать
 // сразу после NewManager5, до начала обработки запросов.
 func (m *Manager5[R1, R2, R3, R4, R5]) WithTimeout(d time.Duration) *Manager5[R1, R2, R3, R4, R5] {
-	m.timeout = d
+	if d > 0 {
+		m.timeout = d
+	}
 	return m
 }
 
@@ -263,10 +305,16 @@ func (m *Manager5[R1, R2, R3, R4, R5]) Default() (R1, R2, R3, R4, R5) {
 // error. The transaction is bounded by m.timeout regardless of ctx's own
 // deadline.
 func (m *Manager5[R1, R2, R3, R4, R5]) Exec(ctx context.Context, fn func(ctx context.Context, repo1 R1, repo2 R2, repo3 R3, repo4 R4, repo5 R5) error) error {
-	ctx, cancel := context.WithTimeout(ctx, m.timeout)
-	defer cancel()
+	return run(ctx, m.client, m.timeout, nil, func(ctx context.Context, tx *gorm.DB) error {
+		return fn(ctx, m.build1(tx), m.build2(tx), m.build3(tx), m.build4(tx), m.build5(tx))
+	})
+}
 
-	return m.client.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+// ExecWithOptions — Exec с параметрами транзакции (уровень изоляции, read-only).
+// Вложенный вызов (транзакция уже в ctx) идёт точкой сохранения внешней
+// транзакции, opts не применяются.
+func (m *Manager5[R1, R2, R3, R4, R5]) ExecWithOptions(ctx context.Context, opts *sql.TxOptions, fn func(ctx context.Context, repo1 R1, repo2 R2, repo3 R3, repo4 R4, repo5 R5) error) error {
+	return run(ctx, m.client, m.timeout, opts, func(ctx context.Context, tx *gorm.DB) error {
 		return fn(ctx, m.build1(tx), m.build2(tx), m.build3(tx), m.build4(tx), m.build5(tx))
 	})
 }

@@ -1,5 +1,70 @@
 # Changelog
 
+## [1.4.0]
+
+Зависимость `gosdk-core` поднята до v1.3.0.
+
+Постраничная выборка без SQL-инъекции через сортировку и с лимитами, транзакции через ctx, лимиты пула по умолчанию.
+Сигнатуры не изменились, новых переменных окружения нет.
+
+### Исправлено
+
+- `pagination.Pages`: строка `Paging.OrderBy` (`json:"order_by"`) уходила в `ORDER BY` как есть — SQL-инъекция из
+  запроса клиента. Теперь — только колонка (`name`, `table.name`) с необязательным `asc`/`desc`, в кавычках диалекта,
+  имя в нижнем регистре; другая строка — ошибка `pagination.ErrInvalidOrderBy`, запросы не выполняются.
+- `Paging.MaxLimit` и `Paging.ShowSQL` читались из JSON/form-параметров клиента — теперь `json:"-" form:"-"`.
+- `MaxLimit` 0 давал `LIMIT 0` (пустая страница); теперь 0 или больше 1000 — потолок 1000
+  (`pagination.MaxLimitCeiling`). `TotalPage` считается целочисленно, без деления на ноль.
+- Сортировка по умолчанию `id desc` записывалась в `Paging.OrderBy`, но не применялась к запросу — теперь применяется:
+  первичный ключ модели по убыванию с именем таблицы (`"banners"."id" DESC`), если у запроса нет своего ORDER BY,
+  GROUP BY или DISTINCT.
+- Номер страницы ограничен: `(page-1)*limit` больше не переполняется (OFFSET не больше 2^31-1).
+- Count запроса с GROUP BY или DISTINCT — `SELECT count(*) FROM (<запрос>) AS pagination_count` вместо выборки строки
+  на каждую группу.
+- `GormPaginatedHelper.SetTimeout(time.Duration)` умножал значение на секунду (`SetTimeout(5*time.Second)` —
+  переполнение и мгновенный таймаут). Теперь — настоящий `Duration`; значение меньше миллисекунды — секунды
+  (`SetTimeout(10)` — 10 с, как раньше); 0 и меньше — не меняет таймаут.
+- Транзакции: вложенный `Exec` открывал вторую независимую транзакцию (своё соединение пула, взаимоблокировка с
+  внешней, фиксация отдельно). Теперь `Exec` кладёт транзакцию в `ctx`, вложенный `Exec` на том же подключении идёт
+  точкой сохранения внешней транзакции.
+- Count в `Pages` брал таблицу из типа результата (`Model(result)`), затирая `Model` запроса: с результатом-DTO count
+  с GROUP BY/DISTINCT падал (`relation "..." does not exist`), без них — считал не ту таблицу. Теперь тип результата —
+  только если у запроса нет `Model` и `Table`.
+- `WithTimeout(d)` с `d ≤ 0` давал мгновенный таймаут каждой транзакции — теперь игнорируется.
+- `GetGormConnection`: пул без пределов — теперь `MaxOpenConnections` по умолчанию 25, `MaxIdleConnections` 10 (не
+  больше открытых), `ConnMaxIdleTime` 5 мин; заданные в конфиге значения не меняются.
+
+### Добавлено
+
+- `transaction.FromContext(ctx, client)` — транзакция `Exec` из ctx (на том же подключении) или `client`;
+  `transaction.InTransaction(ctx)`, `transaction.WithoutTransaction(ctx)` — ctx для независимой транзакции.
+- `ExecWithOptions(ctx, *sql.TxOptions, fn)` у `Manager`…`Manager5` — уровень изоляции, read-only.
+- `transaction.Retry(ctx, attempts, fn)` и `transaction.IsRetryable(err)` — повтор транзакции при SQLSTATE `40001` и
+  `40P01`, только явно и не внутри открытой транзакции.
+- `helpers.EscapeLike(s)` (`pkg/query/helpers`) — экранирует `%`, `_`, `\` для LIKE/ILIKE.
+- Константы `pagination.DefaultLimit`, `pagination.MaxLimitCeiling`, ошибка `pagination.ErrInvalidOrderBy`.
+
+### ⚠️ Изменения поведения
+
+- `Pages` возвращает ошибку `ErrInvalidOrderBy` на `order_by` с выражением, функцией, `nulls last`, несколькими
+  колонками в одной строке. Сервис отвечает клиенту 400/422 (`errors.Is(err, pagination.ErrInvalidOrderBy)`), а не
+  500. Сортировку выражением задавать в колбэке запроса, а не через `Paging.OrderBy`. Имя колонки идёт в кавычках в
+  нижнем регистре: колонку со смешанным регистром в схеме (`"createdAt"`) так не отсортировать.
+- Страница не больше 1000 записей, даже если `MaxLimit` больше; `MaxLimit` из JSON запроса больше не действует.
+- Без `order_by` страница отсортирована по первичному ключу по убыванию (раньше — порядок БД).
+- Вложенный `Exec` с ctx внешнего `fn` больше не фиксируется независимо: откат внешней транзакции откатывает и его.
+  Если нужна независимая фиксация (например, журнал при откате) — `Exec(transaction.WithoutTransaction(ctx), ...)`,
+  понимая риск взаимоблокировки с внешней транзакцией.
+- Вложенные `Exec` с одним ctx из разных горутин выполняются по очереди, каждый целиком: соединение у транзакции одно,
+  и `ROLLBACK TO` одного откатывал записи другого. Внешний `fn` перед фиксацией ждёт уже идущий вложенный `Exec`.
+  Параллельная независимая работа — `Exec(transaction.WithoutTransaction(ctx), ...)`.
+- ctx, переживший `Exec` (отложенный `go m.Exec(context.WithoutCancel(ctx), ...)`), после фиксации или отката не несёт
+  транзакцию: `Exec` с ним открывает новую (раньше — ошибка `transaction has already been committed`), `FromContext` —
+  `client`, `InTransaction` — `false`.
+- Без `MaxOpenConnections` пул ограничен 25 соединениями: запросы сверх предела ждут свободного соединения (до
+  таймаута ctx). Под высокой нагрузкой задать `POSTGRES_DB_MAX_OPEN_CONNECTIONS` явно.
+- Тестовая зависимость `github.com/DATA-DOG/go-sqlmock` v1.5.2 в `go.mod`.
+
 ## [1.3.1]
 
 Зависимость `gosdk-core` поднята до v1.2.0. API пакета не изменился.

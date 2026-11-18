@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"io"
 	"log"
@@ -42,15 +43,7 @@ func GetGormConnection(dbConfig *DbConfig) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	db.SetConnMaxLifetime(time.Hour)
-
-	if dbConfig.MaxOpenConnections > 0 {
-		db.SetMaxOpenConns(dbConfig.MaxOpenConnections)
-	}
-
-	if dbConfig.MaxIdleConnections > 0 {
-		db.SetMaxIdleConns(dbConfig.MaxIdleConnections)
-	}
+	applyPoolLimits(db, dbConfig)
 
 	var threshold time.Duration
 
@@ -75,6 +68,37 @@ func GetGormConnection(dbConfig *DbConfig) (*gorm.DB, error) {
 	}
 
 	return gormDb, nil
+}
+
+const (
+	// defaultMaxOpenConnections Предел открытых соединений, если MaxOpenConnections не задан: без предела пул
+	// под нагрузкой открывает соединения, пока БД не откажет всем (max_connections)
+	defaultMaxOpenConnections = 25
+	// defaultMaxIdleConnections Простаивающих соединений, если MaxIdleConnections не задан (не больше открытых)
+	defaultMaxIdleConnections = 10
+	// defaultConnMaxIdleTime Простаивающее соединение закрывается через это время
+	defaultConnMaxIdleTime = 5 * time.Minute
+	// defaultConnMaxLifetime Соединение пересоздаётся через это время
+	defaultConnMaxLifetime = time.Hour
+)
+
+// applyPoolLimits Лимиты пула: заданные в конфиге (> 0) — как есть, не заданные — по умолчанию; простаивающих
+// не больше открытых
+func applyPoolLimits(db *sql.DB, dbConfig *DbConfig) {
+	maxOpen := dbConfig.MaxOpenConnections
+	if maxOpen <= 0 {
+		maxOpen = defaultMaxOpenConnections
+	}
+
+	maxIdle := dbConfig.MaxIdleConnections
+	if maxIdle <= 0 {
+		maxIdle = min(defaultMaxIdleConnections, maxOpen)
+	}
+
+	db.SetConnMaxLifetime(defaultConnMaxLifetime)
+	db.SetConnMaxIdleTime(defaultConnMaxIdleTime)
+	db.SetMaxOpenConns(maxOpen)
+	db.SetMaxIdleConns(maxIdle)
 }
 
 // envIgnoreRecordNotFound Переменная окружения: true — не писать «record not found» (First/Take/Last без строки)
