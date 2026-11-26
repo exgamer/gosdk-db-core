@@ -1,10 +1,10 @@
 module github.com/exgamer/gosdk-db-core
 
-go 1.27.3
+go 1.27.4
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
-	github.com/exgamer/gosdk-core v1.3.0
+	github.com/exgamer/gosdk-core v1.3.1
 	github.com/getsentry/sentry-go v0.50.0
 	github.com/go-errors/errors v1.5.1
 	github.com/go-gormigrate/gormigrate/v2 v2.1.7
